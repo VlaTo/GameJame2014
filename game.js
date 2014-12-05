@@ -5,6 +5,8 @@
 	//
 	// main game object
 	scope.Game = function(options) {
+		var ACTION_DISTANCE = 80.0;
+
 		this.options = options || {};
 
 		this.canvas = null;
@@ -21,6 +23,28 @@
 		this.lastActorTicks = null;
 
 		this.gravity = new Vector2(0.0, 0.1);
+
+		function findTrack(tracks, actor) {
+			var minimal = Infinity;
+			var candidate = null;
+
+			for(var index = 0; index < tracks.length; index++) {
+				var track = tracks[index];
+
+				if (track == actor.track) {
+					continue;
+				}
+
+				var distance = track.distance(actor);
+
+				if (distance < minimal) {
+					candidate = track;
+					minimal = distance;
+				}
+			}
+
+			return candidate;
+		};
 
 		//
 		// Timer object
@@ -158,6 +182,20 @@
 			this.drop = function(actor) {
 				this.count++;
 			};
+
+			this.distance = function(actor) {
+				var vector = actor.mass();
+				return new Vector2(this.origin.x + this.halfWidth, vector.y).distance(vector);
+			};
+
+			this.update = function(actor) {
+				var distance = this.distance(actor);
+				var force = new Vector2(- distance, 0.1).normalize();
+
+				force.y = 0.0;
+
+				actor.velocity = actor.velocity.add(force);
+			};
 		}
 
 		//
@@ -244,6 +282,10 @@
 				context.strokeStyle = 'black';
 				context.stroke();
 
+				context.fillStyle = 'white';
+				context.font = 'normal 10pt Calibri';
+				context.fillText(this.track.num.toString(), 5.0, 5.0);
+
 				context.restore();
 			};
 
@@ -297,10 +339,29 @@
 				var actor = this.actors[index];
 
 				if (this.action != null) {
-					this.action.apply(actor, 80.0 /*this.width*/);
+					this.action.apply(actor, ACTION_DISTANCE);
 				}
 
-				actor.update(elapsed);
+				actor.update(elapsed/*, this.tracks*/);
+
+				var track = actor.track;
+				var distance = track.distance(actor);
+
+				if (distance > track.halfWidth) {
+					track = findTrack(this.tracks, actor);
+
+					if (track == null) {
+						debugger
+					}
+
+					actor.track = track;
+				}
+
+				track.update(actor);
+
+				if (isNaN(actor.origin.x)) {
+					debugger;
+				}
 
 				var flags = bounds.test(actor.getBounds());
 
@@ -326,13 +387,13 @@
 				index++;
 			}
 
-			if (this.lastActorTicks == null || (elapsed - this.lastActorTicks) > 2500) {
-				var num = Math.round(Math.random() * 3);
-				var track = this.tracks[num];
-				var actor = new Actor(track, 'yellow');
+			if (this.actors.length == 0) {
+				if (this.lastActorTicks == null || (elapsed - this.lastActorTicks) > 2500) {
+					var num = Math.round(Math.random() * 3);
 
-				this.actors.push(actor);
-				this.lastActorTicks = elapsed;
+					this.actors.push(new Actor(this.tracks[num], 'yellow'));
+					this.lastActorTicks = elapsed;
+				}
 			}
 
 			return true;
