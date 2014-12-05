@@ -7,6 +7,13 @@
 	scope.Game = function(options) {
 		var ACTION_DISTANCE = 80.0;
 
+		var ColorType = {
+			Color1: 0,
+			Color2: 1,
+			Color3: 2,
+			Color4: 3
+		};
+
 		this.options = options || {};
 
 		this.canvas = null;
@@ -22,7 +29,7 @@
 		this.tracks = [];
 		this.lastActorTicks = null;
 
-		this.gravity = new Vector2(0.0, 0.1);
+		this.gravity = new Vector2(0.0, 0.3);
 
 		function findTrack(tracks, actor) {
 			var minimal = Infinity;
@@ -142,9 +149,9 @@
 
 		//
 		// Track object
-		function Track(num, middle, halfWidth, length, color) {
-			this.num = num;
-			this.color = color;
+		function Track(type, middle, halfWidth, length) {
+			this.type = type;
+			// this.color = color;
 			this.origin = new Vector2(middle - halfWidth, -length / 2.0);
 			this.halfWidth = halfWidth;
 			this.length = length;
@@ -160,7 +167,24 @@
 				context.rect(0.0, 0.0, this.halfWidth * 2.0, length);
 				context.closePath();
 
-				context.fillStyle = color;
+				switch(this.type) {
+					case ColorType.Color1:
+						context.fillStyle = '#BFF2E6';
+					break;
+
+					case ColorType.Color2:
+						context.fillStyle = '#BFE0F2';
+					break;
+
+					case ColorType.Color3:
+						context.fillStyle = '#F0F2BF';
+					break;
+
+					case ColorType.Color4:
+						context.fillStyle = '#F2BFEE';
+					break;
+				}
+
 				context.fill();
 
 				context.beginPath();
@@ -180,7 +204,9 @@
 			};
 
 			this.drop = function(actor) {
-				this.count++;
+				if (actor.type == this.type) {
+					this.count++;
+				}
 			};
 
 			this.distance = function(actor) {
@@ -194,7 +220,7 @@
 
 				force.y = 0.0;
 
-				actor.velocity = actor.velocity.add(force);
+				//actor.acceleration = actor.acceleration.add(force);
 			};
 		}
 
@@ -205,16 +231,16 @@
 
 			var radius = 20;
 
-			this.apply = function(actor, width) {
+			this.apply = function(actor, elapsed, acceleration, distance) {
 				var vector = actor.mass().sub(this.origin);
-				var factor = 1 - Math.min(1, vector.length() / width);
+				var factor = 1 - Math.min(1, vector.length() / distance);
 
 				vector = vector.normalize();
 				vector.y = 0.0;
 
-				actor.velocity = actor.velocity.add(vector.scalar(factor));
+				return acceleration.add(vector.scalar(factor));
 
-				;
+				// actor.velocity = actor.velocity.add(vector.scalar(factor));
 			};
 
 			this.draw = function(context) {
@@ -239,14 +265,14 @@
 
 		//
 		// Actor object
-		function Actor(track, color, velocity, acceleration) {
+		function Actor(track, type, velocity) {
 			var size = 50;
 
-			this.color = color;
+			this.type = type;
 			this.track = track;
 			this.origin = new Vector2(track.origin.x + (track.halfWidth - size / 2.0), track.origin.y);
 			this.velocity = velocity || new Vector2(0.0, 0.0);
-			this.acceleration = acceleration || new Vector2(0.0, 0.1);
+			// this.acceleration = acceleration || new Vector2(0.0, 0.1);
 			this.center = new Vector2(size / 2.0, size / 2.0);
 			this.ticks = null;
 
@@ -254,7 +280,7 @@
 				return this.origin.add(this.center);
 			};
 
-			this.update = function(elapsed) {
+			this.update = function(elapsed, acceleration) {
 				if (this.ticks == null) {
 					this.ticks = elapsed;
 				}
@@ -262,8 +288,8 @@
 				var duration = elapsed - this.ticks;
 
 				this.origin = this.origin.add(this.velocity);
-				this.velocity = this.velocity.add(this.acceleration);
-				this.acceleration = this.acceleration.scalar(0.9);
+				this.velocity = this.velocity.scalar(0.5).add(acceleration);
+				// this.acceleration = this.acceleration.scalar(0.3);
 			};
 
 			this.draw = function(context) {
@@ -275,16 +301,34 @@
 				context.arc(size / 2.0, size / 2.0, size / 2.0, 0.0, Math.PI * 2);
 				context.closePath();
 
-				context.fillStyle = this.color;
+				switch(this.type) {
+					case ColorType.Color1:
+						context.fillStyle = '#BFF2E6';
+					break;
+
+					case ColorType.Color2:
+						context.fillStyle = '#BFE0F2';
+					break;
+
+					case ColorType.Color3:
+						context.fillStyle = '#F0F2BF';
+					break;
+
+					case ColorType.Color4:
+						context.fillStyle = '#F2BFEE';
+					break;
+				}
+
+				// context.fillStyle = this.color;
 				context.fill();
 
 				context.lineWidth = 1.5;
 				context.strokeStyle = 'black';
 				context.stroke();
 
-				context.fillStyle = 'white';
+				/*context.fillStyle = 'white';
 				context.font = 'normal 10pt Calibri';
-				context.fillText(this.track.num.toString(), 5.0, 5.0);
+				context.fillText(this.track.num.toString(), 5.0, 5.0);*/
 
 				context.restore();
 			};
@@ -316,10 +360,10 @@
 
 			this.timer = new Timer();
 
-			this.tracks.push(new Track(1, -150.0, 50.0, this.height, '#BFF2E6'));
-			this.tracks.push(new Track(2, -50.0, 50.0, this.height, '#BFE0F2'));
-			this.tracks.push(new Track(3, 50.0, 50.0, this.height, '#F0F2BF'));
-			this.tracks.push(new Track(4, 150.0, 50.0, this.height, '#F2BFEE'));
+			this.tracks.push(new Track(ColorType.Color1, -150.0, 50.0, this.height));
+			this.tracks.push(new Track(ColorType.Color2, -50.0, 50.0, this.height));
+			this.tracks.push(new Track(ColorType.Color3, 50.0, 50.0, this.height));
+			this.tracks.push(new Track(ColorType.Color4, 150.0, 50.0, this.height));
 		};
 
 		this.attachCanvasEvent = function(event, callback) {
@@ -337,12 +381,14 @@
 
 			for(var index = 0; index < this.actors.length;) {
 				var actor = this.actors[index];
+				var acceleration = this.gravity;
 
 				if (this.action != null) {
-					this.action.apply(actor, ACTION_DISTANCE);
+					// this.action.apply(actor, ACTION_DISTANCE);
+					acceleration = this.action.apply(actor, elapsed, this.gravity, ACTION_DISTANCE);
 				}
 
-				actor.update(elapsed/*, this.tracks*/);
+				actor.update(elapsed, acceleration);
 
 				var track = actor.track;
 				var distance = track.distance(actor);
@@ -387,14 +433,15 @@
 				index++;
 			}
 
-			if (this.actors.length == 0) {
+			// if (this.actors.length == 0) {
 				if (this.lastActorTicks == null || (elapsed - this.lastActorTicks) > 2500) {
+					var colors = [ColorType.Color3, ColorType.Color2, ColorType.Color4, ColorType.Color1];
 					var num = Math.round(Math.random() * 3);
 
-					this.actors.push(new Actor(this.tracks[num], 'yellow'));
+					this.actors.push(new Actor(this.tracks[num], colors[num]));
 					this.lastActorTicks = elapsed;
 				}
-			}
+			// }
 
 			return true;
 		};
