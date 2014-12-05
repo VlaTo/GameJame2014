@@ -118,11 +118,14 @@
 
 		//
 		// Track object
-		function Track(middle, halfWidth, length, color) {
+		function Track(num, middle, halfWidth, length, color) {
+			this.num = num;
 			this.color = color;
 			this.origin = new Vector2(middle - halfWidth, -length / 2.0);
 			this.halfWidth = halfWidth;
 			this.length = length;
+
+			this.count = 0;
 
 			this.draw = function(context) {
 				context.save();
@@ -145,7 +148,15 @@
 				context.strokeStyle = 'black';
 				context.stroke();
 
+				context.fillStyle = 'white';
+				context.font = 'bold 12pt Calibri';
+				context.fillText(this.count.toString(), 10.0, 15.0);
+
 				context.restore();
+			};
+
+			this.drop = function(actor) {
+				this.count++;
 			};
 		}
 
@@ -158,9 +169,14 @@
 
 			this.apply = function(actor, width) {
 				var vector = actor.mass().sub(this.origin);
-				var factor = 1 - vector.length() / width;
+				var factor = 1 - Math.min(1, vector.length() / width);
 
-				actor.force = vector.normalize().scalar(factor);
+				vector = vector.normalize();
+				vector.y = 0.0;
+
+				actor.velocity = actor.velocity.add(vector.scalar(factor));
+
+				;
 			};
 
 			this.draw = function(context) {
@@ -189,6 +205,7 @@
 			var size = 50;
 
 			this.color = color;
+			this.track = track;
 			this.origin = new Vector2(track.origin.x + (track.halfWidth - size / 2.0), track.origin.y);
 			this.velocity = velocity || new Vector2(0.0, 0.0);
 			this.acceleration = acceleration || new Vector2(0.0, 0.1);
@@ -231,7 +248,13 @@
 			};
 
 			this.getBounds = function() {
-				return new Bounds(this.origin.x, this.origin.y, this.origin.x + size, this.origin.y + size);
+				var offset = 5;
+				return new Bounds(
+					this.origin.x + offset,
+					this.origin.y + offset,
+					this.origin.x + size - offset,
+					this.origin.y + size - offset
+				);
 			};
 		};
 
@@ -251,10 +274,10 @@
 
 			this.timer = new Timer();
 
-			this.tracks.push(new Track(-150.0, 50.0, this.height, '#BFF2E6'));
-			this.tracks.push(new Track(-50.0, 50.0, this.height, '#BFE0F2'));
-			this.tracks.push(new Track(50.0, 50.0, this.height, '#F0F2BF'));
-			this.tracks.push(new Track(150.0, 50.0, this.height, '#F2BFEE'));
+			this.tracks.push(new Track(1, -150.0, 50.0, this.height, '#BFF2E6'));
+			this.tracks.push(new Track(2, -50.0, 50.0, this.height, '#BFE0F2'));
+			this.tracks.push(new Track(3, 50.0, 50.0, this.height, '#F0F2BF'));
+			this.tracks.push(new Track(4, 150.0, 50.0, this.height, '#F2BFEE'));
 		};
 
 		this.attachCanvasEvent = function(event, callback) {
@@ -268,44 +291,35 @@
 		};
 
 		this.update = function(elapsed) {
-			/*var index = 0;
-
-			while(index < this.actors.length) {
-				var actor = this.actors[index];
-
-				if (actor.origin.y > this.origin.y) {
-					this.actors.splice(index, 1);
-					continue;
-				}
-
-				index++;
-			}*/
-
 			var bounds = new Bounds(- this.origin.x, - this.origin.y, this.origin.x, this.origin.y);
 
 			for(var index = 0; index < this.actors.length;) {
 				var actor = this.actors[index];
 
-				actor.update(elapsed, this.gravity);
-
 				if (this.action != null) {
-					this.action.apply(actor, this.width);
+					this.action.apply(actor, 80.0 /*this.width*/);
 				}
+
+				actor.update(elapsed);
 
 				var flags = bounds.test(actor.getBounds());
 
-				/*if (flags[0]) {
+				if (flags[0]) {
 					actor.velocity = new Vector2(- actor.velocity.x, actor.velocity.y);
 					//actor.force = new Vector2(- actor.force.x, actor.force.y);
 				}
 				else if (flags[2]) {
 					actor.velocity = new Vector2(- actor.velocity.x, actor.velocity.y);
 					//actor.force = new Vector2(- actor.force.x, actor.force.y);
-				}*/
+				}
 
 				if (true == flags[6] && flags[6] == flags[7]) {
-					console.log('[actor] velocity: ' + actor.velocity.y);
+					// console.log('[actor] velocity: ' + actor.velocity.y);
+					var track = actor.track;
+
+					track.drop(actor);
 					this.actors.splice(index, 1);
+
 					continue;
 				}
 
